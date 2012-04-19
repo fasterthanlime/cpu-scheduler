@@ -131,6 +131,19 @@ static inline int task_has_rt_policy(struct task_struct *p)
 	return rt_policy(p->policy);
 }
 
+static inline int dummy_policy(int policy)
+{
+	if (unlikely(policy == SCHED_DUMMY))
+		return 1;
+	return 0;
+}
+
+static inline int task_has_dummy_policy(struct task_struct *p)
+{
+	return dummy_policy(p->policy);
+}
+
+
 /*
  * This is the priority-queue data structure of the RT scheduling class:
  */
@@ -448,6 +461,12 @@ struct cfs_rq {
 #endif
 };
 
+/* Dummy classes' related field in a runqueue: */
+struct dummy_rq {
+	struct list_head list;
+	struct task_struct *task;
+};
+
 /* Real-Time classes' related field in a runqueue: */
 struct rt_rq {
 	struct rt_prio_array active;
@@ -544,6 +563,7 @@ struct rq {
 
 	struct cfs_rq cfs;
 	struct rt_rq rt;
+	struct dummy_rq dummy_rq;
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* list of leaf cfs_rq on this cpu: */
@@ -1837,6 +1857,7 @@ static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
 #include "sched_stats.h"
 #include "sched_idletask.c"
 #include "sched_fair.c"
+#include "sched_dummy.c"
 #include "sched_rt.c"
 #ifdef CONFIG_SCHED_DEBUG
 # include "sched_debug.c"
@@ -1858,7 +1879,7 @@ static void dec_nr_running(struct rq *rq)
 
 static void set_load_weight(struct task_struct *p)
 {
-	if (task_has_rt_policy(p)) {
+	if (task_has_rt_policy(p) || task_has_dummy_policy(p)) {
 		p->se.load.weight = prio_to_weight[0] * 2;
 		p->se.load.inv_weight = prio_to_wmult[0] >> 1;
 		return;
@@ -1952,6 +1973,9 @@ static int effective_prio(struct task_struct *p)
 	 * keep the priority unchanged. Otherwise, update priority
 	 * to the normal priority:
 	 */
+	if (unlikely(dummy_task(p)))
+		return p->prio;
+
 	if (!rt_prio(p->prio))
 		return p->normal_prio;
 	return p->prio;
@@ -2589,7 +2613,8 @@ void sched_fork(struct task_struct *p, int clone_flags)
 	 * Revert to default priority/policy on fork if requested.
 	 */
 	if (unlikely(p->sched_reset_on_fork)) {
-		if (p->policy == SCHED_FIFO || p->policy == SCHED_RR) {
+		if (p->policy == SCHED_FIFO || p->policy == SCHED_RR ||
+			dummy_policy(p->policy)) {
 			p->policy = SCHED_NORMAL;
 			p->normal_prio = p->static_prio;
 		}
@@ -2612,8 +2637,13 @@ void sched_fork(struct task_struct *p, int clone_flags)
 	 */
 	p->prio = current->normal_prio;
 
-	if (!rt_prio(p->prio))
-		p->sched_class = &fair_sched_class;
+	if (!rt_prio(p->prio)) {
+		if (dummy_prio(p->prio)) {
+			p->sched_class = &dummy_sched_class;
+		} else {
+			p->sched_class = &fair_sched_class;
+		}
+	}
 
 	if (p->sched_class->task_fork)
 		p->sched_class->task_fork(p);
@@ -6069,10 +6099,15 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 	if (running)
 		p->sched_class->put_prev_task(rq, p);
 
-	if (rt_prio(prio))
+	if (rt_prio(prio)) {
 		p->sched_class = &rt_sched_class;
-	else
-		p->sched_class = &fair_sched_class;
+	} else {
+		if (dummy_prio(prio)) {
+			p->sched_class = &dummy_sched_class;
+		} else {
+			p->sched_class = &fair_sched_class;
+		}
+	}
 
 	p->prio = prio;
 
@@ -6108,7 +6143,7 @@ void set_user_nice(struct task_struct *p, long nice)
 	 * it wont have any effect on scheduling until the task is
 	 * SCHED_FIFO/SCHED_RR:
 	 */
-	if (task_has_rt_policy(p)) {
+	if (unlikely(task_has_rt_policy(p) || task_has_dummy_policy(p))) {
 		p->static_prio = NICE_TO_PRIO(nice);
 		goto out_unlock;
 	}
@@ -6120,6 +6155,11 @@ void set_user_nice(struct task_struct *p, long nice)
 	set_load_weight(p);
 	old_prio = p->prio;
 	p->prio = effective_prio(p);
+
+	if (dummy_prio(p->prio)) {
+		p->sched_class = &dummy_sched_class;
+	}
+
 	delta = p->prio - old_prio;
 
 	if (on_rq) {
@@ -6253,10 +6293,13 @@ __setscheduler(struct rq *rq, struct task_struct *p, int policy, int prio)
 	p->normal_prio = normal_prio(p);
 	/* we are holding p->pi_lock already */
 	p->prio = rt_mutex_getprio(p);
-	if (rt_prio(p->prio))
+	if (rt_prio(p->prio)) {
 		p->sched_class = &rt_sched_class;
-	else
+	} else if (dummy_prio(p->prio)) {
+		p->sched_class = &dummy_sched_class;
+	} else {
 		p->sched_class = &fair_sched_class;
+	}
 	set_load_weight(p);
 }
 
@@ -6298,7 +6341,7 @@ recheck:
 
 		if (policy != SCHED_FIFO && policy != SCHED_RR &&
 				policy != SCHED_NORMAL && policy != SCHED_BATCH &&
-				policy != SCHED_IDLE)
+				policy != SCHED_IDLE && policy != SCHED_DUMMY)
 			return -EINVAL;
 	}
 
@@ -6311,6 +6354,10 @@ recheck:
 	    (p->mm && param->sched_priority > MAX_USER_RT_PRIO-1) ||
 	    (!p->mm && param->sched_priority > MAX_RT_PRIO-1))
 		return -EINVAL;
+
+	if (dummy_policy(policy) && (param->sched_priority != 0))
+		return -EINVAL;
+		
 	if (rt_policy(policy) != (param->sched_priority != 0))
 		return -EINVAL;
 
@@ -9377,6 +9424,13 @@ static void init_cfs_rq(struct cfs_rq *cfs_rq, struct rq *rq)
 	cfs_rq->min_vruntime = (u64)(-(1LL << 20));
 }
 
+
+static void init_dummy_rq(struct dummy_rq *dummy_rq, struct rq *rq)
+{
+	INIT_LIST_HEAD(&dummy_rq->list);
+}
+
+
 static void init_rt_rq(struct rt_rq *rt_rq, struct rq *rq)
 {
 	struct rt_prio_array *array;
@@ -9570,6 +9624,7 @@ void __init sched_init(void)
 		rq->calc_load_active = 0;
 		rq->calc_load_update = jiffies + LOAD_FREQ;
 		init_cfs_rq(&rq->cfs, rq);
+		init_dummy_rq(&rq->dummy_rq, rq);
 		init_rt_rq(&rq->rt, rq);
 #ifdef CONFIG_FAIR_GROUP_SCHED
 		init_task_group.shares = init_task_group_load;
@@ -9685,7 +9740,11 @@ void __init sched_init(void)
 	/*
 	 * During early bootup we pretend to be a normal task:
 	 */
-	current->sched_class = &fair_sched_class;
+	if (unlikely(current->prio > MAX_PRIO-10)) {
+		current->sched_class = &dummy_sched_class;
+	} else {
+		current->sched_class = &fair_sched_class;
+	}
 
 	/* Allocate the nohz_cpu_mask if CONFIG_CPUMASK_OFFSTACK */
 	zalloc_cpumask_var(&nohz_cpu_mask, GFP_NOWAIT);
