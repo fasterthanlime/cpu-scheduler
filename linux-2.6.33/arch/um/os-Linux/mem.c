@@ -3,6 +3,7 @@
  * Licensed under the GPL
  */
 
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
