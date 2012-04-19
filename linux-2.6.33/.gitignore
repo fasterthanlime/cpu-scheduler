@@ -36,6 +36,7 @@ modules.builtin
 #
 tags
 TAGS
+linux
 vmlinux
 vmlinuz
 System.map
@@ -71,3 +72,8 @@ GTAGS
 *.orig
 *~
 \#*#
+
+# UML files
+arch/um/include/shared/*.h
+arch/um/kernel/config.*
+arch/um/kernel/vmlinux.lds
