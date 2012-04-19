@@ -1,0 +1,25 @@
+Acked-by: Kirill A. Shutemov <kirill@...>
+Signed-off-by: Richard Weinberger <richard@...>
+---
+ arch/um/include/asm/thread_info.h |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/arch/um/include/asm/thread_info.h b/arch/um/include/asm/thread_info.h
+index e2cf786..5bd1bad 100644
+--- a/arch/um/include/asm/thread_info.h
++++ b/arch/um/include/asm/thread_info.h
+@@ -49,7 +49,10 @@ static inline struct thread_info *current_thread_info(void)
+ {
+        struct thread_info *ti;
+        unsigned long mask = THREAD_SIZE - 1;
+-       ti = (struct thread_info *) (((unsigned long) &ti) & ~mask);
++       void *p;
++
++       asm volatile ("" : "=r" (p) : "0" (&ti));
++       ti = (struct thread_info *) (((unsigned long)p) & ~mask);
+        return ti;
+ }
+ 
+-- 
+1.7.4.2
+
