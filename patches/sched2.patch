@@ -1,0 +1,130 @@
+diff -crB a/include/linux/sched.h b/include/linux/sched.h
+*** a/include/linux/sched.h	2012-04-23 22:11:21.602754948 +0200
+--- b/include/linux/sched.h	2012-04-19 02:08:46.591825247 +0200
+***************
+*** 1603,1611 ****
+  	return rt_prio(p->prio);
+  }
+  
+  static inline int dummy_prio(int prio)
+  {
+! 	return !rt_prio(prio);
+  }
+  
+  static inline int dummy_task(struct task_struct *p)
+--- 1603,1615 ----
+  	return rt_prio(p->prio);
+  }
+  
++ #define MIN_DUMMY_PRIO          (MAX_RT_PRIO + 30)
++ 
+  static inline int dummy_prio(int prio)
+  {
+! 	if (unlikely(prio >= MIN_DUMMY_PRIO))
+! 		return 1;
+! 	return 0;
+  }
+  
+  static inline int dummy_task(struct task_struct *p)
+diff -crB a/kernel/sched.c b/kernel/sched.c
+*** a/kernel/sched.c	2012-04-23 22:11:21.592752362 +0200
+--- b/kernel/sched.c	2012-04-25 03:50:07.491930756 +0200
+***************
+*** 1856,1863 ****
+  
+  #include "sched_stats.h"
+  #include "sched_idletask.c"
+- #include "sched_fair.c"
+  #include "sched_dummy.c"
+  #include "sched_rt.c"
+  #ifdef CONFIG_SCHED_DEBUG
+  # include "sched_debug.c"
+--- 1856,1863 ----
+  
+  #include "sched_stats.h"
+  #include "sched_idletask.c"
+  #include "sched_dummy.c"
++ #include "sched_fair.c"
+  #include "sched_rt.c"
+  #ifdef CONFIG_SCHED_DEBUG
+  # include "sched_debug.c"
+diff -crB a/kernel/sched_dummy.c b/kernel/sched_dummy.c
+*** a/kernel/sched_dummy.c	2012-04-23 22:11:21.592752362 +0200
+--- b/kernel/sched_dummy.c	2012-04-25 04:15:32.482752062 +0200
+***************
+*** 99,106 ****
+  	}
+  }
+  
+  static const struct sched_class dummy_sched_class = {
+! 	.next		    = &fair_sched_class,
+  	.enqueue_task       = enqueue_task_dummy,
+  	.dequeue_task       = dequeue_task_dummy,
+  	.yield_task         = yield_task_dummy,
+--- 99,111 ----
+  	}
+  }
+  
++ static unsigned int get_rr_interval_dummy(struct rq *rq, struct task_struct *task)
++ {
++ 	return 0;
++ }
++ 
+  static const struct sched_class dummy_sched_class = {
+! 	.next		    = &idle_sched_class,
+  	.enqueue_task       = enqueue_task_dummy,
+  	.dequeue_task       = dequeue_task_dummy,
+  	.yield_task         = yield_task_dummy,
+***************
+*** 117,121 ****
+  	.prio_changed       = prio_changed_dummy,
+  	.switched_to        = switched_to_dummy,
+  
+! 	.get_rr_interval    = get_rr_interval_fair,
+  };
+--- 122,126 ----
+  	.prio_changed       = prio_changed_dummy,
+  	.switched_to        = switched_to_dummy,
+  
+! 	.get_rr_interval    = get_rr_interval_dummy,
+  };
+diff -crB a/kernel/sched_fair.c b/kernel/sched_fair.c
+*** a/kernel/sched_fair.c	2010-02-24 19:52:17.000000000 +0100
+--- b/kernel/sched_fair.c	2012-04-25 03:45:09.952753796 +0200
+***************
+*** 2095,2101 ****
+   * All the scheduling class methods:
+   */
+  static const struct sched_class fair_sched_class = {
+! 	.next			= &idle_sched_class,
+  	.enqueue_task		= enqueue_task_fair,
+  	.dequeue_task		= dequeue_task_fair,
+  	.yield_task		= yield_task_fair,
+--- 2095,2101 ----
+   * All the scheduling class methods:
+   */
+  static const struct sched_class fair_sched_class = {
+! 	.next			= &dummy_sched_class,
+  	.enqueue_task		= enqueue_task_fair,
+  	.dequeue_task		= dequeue_task_fair,
+  	.yield_task		= yield_task_fair,
+diff -crB a/kernel/sched_rt.c b/kernel/sched_rt.c
+*** a/kernel/sched_rt.c	2012-04-23 22:11:21.592752362 +0200
+--- b/kernel/sched_rt.c	2012-04-25 03:44:30.802756119 +0200
+***************
+*** 1733,1739 ****
+  }
+  
+  static const struct sched_class rt_sched_class = {
+! 	.next			= &dummy_sched_class,
+  	.enqueue_task		= enqueue_task_rt,
+  	.dequeue_task		= dequeue_task_rt,
+  	.yield_task		= yield_task_rt,
+--- 1733,1739 ----
+  }
+  
+  static const struct sched_class rt_sched_class = {
+! 	.next			= &fair_sched_class,
+  	.enqueue_task		= enqueue_task_rt,
+  	.dequeue_task		= dequeue_task_rt,
+  	.yield_task		= yield_task_rt,

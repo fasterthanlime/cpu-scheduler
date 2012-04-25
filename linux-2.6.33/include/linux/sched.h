@@ -1603,9 +1603,13 @@ static inline int rt_task(struct task_struct *p)
 	return rt_prio(p->prio);
 }
 
+#define MIN_DUMMY_PRIO          (MAX_RT_PRIO + 30)
+
 static inline int dummy_prio(int prio)
 {
-	return !rt_prio(prio);
+	if (unlikely(prio >= MIN_DUMMY_PRIO))
+		return 1;
+	return 0;
 }
 
 static inline int dummy_task(struct task_struct *p)

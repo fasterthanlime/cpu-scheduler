@@ -99,8 +99,13 @@ static void switched_to_dummy(struct rq *rq, struct task_struct *p,
 	}
 }
 
+static unsigned int get_rr_interval_dummy(struct rq *rq, struct task_struct *task)
+{
+	return 0;
+}
+
 static const struct sched_class dummy_sched_class = {
-	.next		    = &fair_sched_class,
+	.next		    = &idle_sched_class,
 	.enqueue_task       = enqueue_task_dummy,
 	.dequeue_task       = dequeue_task_dummy,
 	.yield_task         = yield_task_dummy,
@@ -117,5 +122,5 @@ static const struct sched_class dummy_sched_class = {
 	.prio_changed       = prio_changed_dummy,
 	.switched_to        = switched_to_dummy,
 
-	.get_rr_interval    = get_rr_interval_fair,
+	.get_rr_interval    = get_rr_interval_dummy,
 };
