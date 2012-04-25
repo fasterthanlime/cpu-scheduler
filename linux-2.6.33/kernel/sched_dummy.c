@@ -10,14 +10,15 @@ static void _enqueue(struct rq *rq, struct task_struct *p)
 	n->task = p;
 
 	list_add_tail(&(n->list), &(rq->dummy_rq.list));
-        printk(KERN_INFO "process %d added from dummy task list\n", task_pid_nr(p));
+        printk(KERN_INFO "process %d (with prio %d) added to dummy task list\n", task_pid_nr(p), p->prio);
 }
 
 static void _remove(struct rq *rq, struct task_struct *p)
 {
-        printk(KERN_INFO "process %d removed from dummy task list\n", task_pid_nr(p));
 	struct list_head *pos, *q;
 	struct dummy_rq *tmp;
+
+        printk(KERN_INFO "process %d removed from dummy task list\n", task_pid_nr(p));
 
 	list_for_each_safe(pos, q, &rq->dummy_rq.list) {
 		tmp = list_entry(pos, struct dummy_rq, list);
@@ -60,14 +61,18 @@ static void dequeue_task_dummy(struct rq *rq, struct task_struct *p, int sleep)
 static struct task_struct *pick_next_task_dummy(struct rq *rq)
 {
 	if (!list_empty(&rq->dummy_rq.list)) {
-                // this code returns the first task in the list:
+                struct task_struct *best, *candidate;
+                struct list_head *pos;
+               
+                best = list_entry(rq->dummy_rq.list.next, struct dummy_rq, list)->task;
+                list_for_each(pos, &rq->dummy_rq.list) {
+                    candidate = list_entry(pos, struct dummy_rq, list)->task;
+                    if (candidate->prio > best->prio) {
+                        best = candidate;
+                    }
+                }
 
-		//return list_entry(rq->dummy_rq.list.next, struct dummy_rq, list)->task;
-		//return list_first_entry(rq->dummy_rq.list, struct dummy_rq, list)->task;
-
-                // this code returns the last task in the list:
-
-                return list_entry(rq->dummy_rq.list.prev, struct dummy_rq, list)->task;
+                return best;
 	}
 	return NULL;
 }
