@@ -10,10 +10,12 @@ static void _enqueue(struct rq *rq, struct task_struct *p)
 	n->task = p;
 
 	list_add_tail(&(n->list), &(rq->dummy_rq.list));
+        printk(KERN_INFO "process %d added from dummy task list\n", task_pid_nr(p));
 }
 
 static void _remove(struct rq *rq, struct task_struct *p)
 {
+        printk(KERN_INFO "process %d removed from dummy task list\n", task_pid_nr(p));
 	struct list_head *pos, *q;
 	struct dummy_rq *tmp;
 
@@ -58,7 +60,14 @@ static void dequeue_task_dummy(struct rq *rq, struct task_struct *p, int sleep)
 static struct task_struct *pick_next_task_dummy(struct rq *rq)
 {
 	if (!list_empty(&rq->dummy_rq.list)) {
-		return list_entry(rq->dummy_rq.list.next, struct dummy_rq, list)->task;
+                // this code returns the first task in the list:
+
+		//return list_entry(rq->dummy_rq.list.next, struct dummy_rq, list)->task;
+		//return list_first_entry(rq->dummy_rq.list, struct dummy_rq, list)->task;
+
+                // this code returns the last task in the list:
+
+                return list_entry(rq->dummy_rq.list.prev, struct dummy_rq, list)->task;
 	}
 	return NULL;
 }
