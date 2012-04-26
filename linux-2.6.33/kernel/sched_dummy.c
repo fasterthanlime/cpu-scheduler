@@ -3,14 +3,13 @@
  */
 #include <linux/sched.h>
 
-
 static void _enqueue(struct rq *rq, struct task_struct *p)
 {
 	struct dummy_rq *n = kmalloc(sizeof(struct dummy_rq), GFP_KERNEL);
 	n->task = p;
 
 	list_add_tail(&(n->list), &(rq->dummy_rq.list));
-        printk(KERN_INFO "process %d (with prio %d) added to dummy task list\n", task_pid_nr(p), p->prio);
+	printk(KERN_INFO "process %d (prio %d, static_prio = %d) added\n", task_pid_nr(p), p->prio, p->static_prio);
 }
 
 static void _remove(struct rq *rq, struct task_struct *p)
@@ -18,7 +17,7 @@ static void _remove(struct rq *rq, struct task_struct *p)
 	struct list_head *pos, *q;
 	struct dummy_rq *tmp;
 
-        printk(KERN_INFO "process %d removed from dummy task list\n", task_pid_nr(p));
+	printk(KERN_INFO "process %d (prio %d, static_prio = %d) removed\n", task_pid_nr(p), p->prio, p->static_prio);
 
 	list_for_each_safe(pos, q, &rq->dummy_rq.list) {
 		tmp = list_entry(pos, struct dummy_rq, list);
@@ -61,18 +60,20 @@ static void dequeue_task_dummy(struct rq *rq, struct task_struct *p, int sleep)
 static struct task_struct *pick_next_task_dummy(struct rq *rq)
 {
 	if (!list_empty(&rq->dummy_rq.list)) {
-                struct task_struct *best, *candidate;
-                struct list_head *pos;
-               
-                best = list_entry(rq->dummy_rq.list.next, struct dummy_rq, list)->task;
-                list_for_each(pos, &rq->dummy_rq.list) {
-                    candidate = list_entry(pos, struct dummy_rq, list)->task;
-                    if (candidate->prio > best->prio) {
-                        best = candidate;
-                    }
-                }
+		//printk(KERN_INFO "picking next task! current = %d\n", task_pid_nr(rq->curr));
+	
+		struct task_struct *best, *candidate;
+		struct list_head *pos;
+	   
+		best = list_entry(rq->dummy_rq.list.next, struct dummy_rq, list)->task;
+		list_for_each(pos, &rq->dummy_rq.list) {
+			candidate = list_entry(pos, struct dummy_rq, list)->task;
+			if (candidate->static_prio < best->static_prio) {
+				best = candidate;
+			}
+		}
 
-                return best;
+		return best;
 	}
 	return NULL;
 }
@@ -90,7 +91,16 @@ static void task_tick_dummy(struct rq *rq, struct task_struct *curr, int queued)
 static void prio_changed_dummy(struct rq *rq, struct task_struct *p,
     int oldprio, int running)
 {
-	// to implement
+	printk(KERN_INFO "process %d (with prio %d) changed prio to %d (running= %d)\n", task_pid_nr(p), oldprio, p->prio, running);
+
+	// if our priority increased, reschedule current task
+	if (running) {
+		if (p->prio < oldprio) {
+			resched_task(rq->curr);
+		}
+	} else {
+		// preempt?
+	}
 }
 
 /**
