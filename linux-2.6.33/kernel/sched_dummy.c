@@ -7,9 +7,11 @@ static void _enqueue(struct rq *rq, struct task_struct *p)
 {
 	struct dummy_rq *n = kmalloc(sizeof(struct dummy_rq), GFP_KERNEL);
 	n->task = p;
+        n->ticks = 0;
 
 	list_add_tail(&(n->list), &(rq->dummy_rq.list));
-	printk(KERN_INFO "process %d (prio %d, static_prio = %d) added\n", task_pid_nr(p), p->prio, p->static_prio);
+
+	printk(KERN_INFO "process %d (prio %d, static_prio = %d, ticks = %lu) added\n", task_pid_nr(p), p->prio, p->static_prio, n->ticks);
 }
 
 static void _remove(struct rq *rq, struct task_struct *p)
@@ -17,11 +19,11 @@ static void _remove(struct rq *rq, struct task_struct *p)
 	struct list_head *pos, *q;
 	struct dummy_rq *tmp;
 
-	printk(KERN_INFO "process %d (prio %d, static_prio = %d) removed\n", task_pid_nr(p), p->prio, p->static_prio);
-
 	list_for_each_safe(pos, q, &rq->dummy_rq.list) {
 		tmp = list_entry(pos, struct dummy_rq, list);
 		if (tmp->task == p) {
+                        printk(KERN_INFO "process %d (prio %d, static_prio = %d, ticks = %lu) removed\n", task_pid_nr(p), p->prio, p->static_prio, tmp->ticks);
+
 			list_del(pos);
 			kfree(tmp);
 		}
@@ -81,8 +83,9 @@ static struct task_struct *really_pick_next_task_dummy(struct rq * rq)
                 }
         }
 
-        _remove(rq, best->task);
-        _enqueue(rq, best->task);
+        // move best to the tail of the list
+        list_del(&(best->list));
+	list_add_tail(&(best->list), &(rq->dummy_rq.list));
 
         return best->task;
 }
@@ -99,12 +102,12 @@ static struct task_struct *pick_next_task_dummy(struct rq *rq)
 static void put_prev_task_dummy(struct rq *rq, struct task_struct *prev)
 {
 	// to implement
-	printk(KERN_INFO "apparently task %d has been preempted!\n", task_pid_nr(prev));
 }
 
 static void task_tick_dummy(struct rq *rq, struct task_struct *curr, int queued)
 {
-	// to implement
+        struct dummy_rq *drq = &(rq->dummy_rq);
+        drq->ticks++;
 }
 
 static void prio_changed_dummy(struct rq *rq, struct task_struct *p,

@@ -465,6 +465,7 @@ struct cfs_rq {
 struct dummy_rq {
 	struct list_head list;
 	struct task_struct *task;
+        unsigned long ticks;
 };
 
 /* Real-Time classes' related field in a runqueue: */
