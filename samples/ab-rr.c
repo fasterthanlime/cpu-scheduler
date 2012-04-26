@@ -64,8 +64,8 @@ int main(int argc, char* argv[]) {
     pid_t pid;
     unsigned i;
 
-    // create 2 child processes with same prio.
-    for(i=0; i<2; ++i) {
+    // create a few child processes with same prio.
+    for(i=0; i<3; ++i) {
         pid = fork();
         if(pid < 0) { // error
             return 1;

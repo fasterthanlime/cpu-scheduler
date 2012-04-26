@@ -57,25 +57,43 @@ static void dequeue_task_dummy(struct rq *rq, struct task_struct *p, int sleep)
 {
 	_remove(rq, p);
 }
+
+static int dummy_calculate_prio(struct dummy_rq * rq)
+{
+        return rq->task->static_prio;
+}
+
+static struct task_struct *really_pick_next_task_dummy(struct rq * rq)
+{
+        // printk(KERN_INFO "picking next task! current = %d\n", task_pid_nr(rq->curr));
+
+        struct dummy_rq *best, *candidate;
+        struct list_head *pos;
+
+        // so that's really stupid but let's see if it works.
+
+        best = list_first_entry(&rq->dummy_rq.list, struct dummy_rq, list);
+        list_for_each_prev(pos, &rq->dummy_rq.list) {
+                candidate = list_entry(pos, struct dummy_rq, list);
+
+                if (dummy_calculate_prio(candidate) < dummy_calculate_prio(best)) {
+                        best = candidate;
+                }
+        }
+
+        _remove(rq, best->task);
+        _enqueue(rq, best->task);
+
+        return best->task;
+}
+
 static struct task_struct *pick_next_task_dummy(struct rq *rq)
 {
 	if (!list_empty(&rq->dummy_rq.list)) {
-		//printk(KERN_INFO "picking next task! current = %d\n", task_pid_nr(rq->curr));
-	
-		struct task_struct *best, *candidate;
-		struct list_head *pos;
-	   
-		best = list_entry(rq->dummy_rq.list.next, struct dummy_rq, list)->task;
-		list_for_each(pos, &rq->dummy_rq.list) {
-			candidate = list_entry(pos, struct dummy_rq, list)->task;
-			if (candidate->static_prio < best->static_prio) {
-				best = candidate;
-			}
-		}
-
-		return best;
-	}
-	return NULL;
+                return really_pick_next_task_dummy(rq);
+        } else {
+                return NULL;
+        }
 }
 
 static void put_prev_task_dummy(struct rq *rq, struct task_struct *prev)
