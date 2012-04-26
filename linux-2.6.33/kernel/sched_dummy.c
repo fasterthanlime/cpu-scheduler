@@ -81,6 +81,7 @@ static struct task_struct *pick_next_task_dummy(struct rq *rq)
 static void put_prev_task_dummy(struct rq *rq, struct task_struct *prev)
 {
 	// to implement
+	printk(KERN_INFO "apparently task %d has been preempted!\n", task_pid_nr(prev));
 }
 
 static void task_tick_dummy(struct rq *rq, struct task_struct *curr, int queued)
@@ -91,7 +92,7 @@ static void task_tick_dummy(struct rq *rq, struct task_struct *curr, int queued)
 static void prio_changed_dummy(struct rq *rq, struct task_struct *p,
     int oldprio, int running)
 {
-	printk(KERN_INFO "process %d (with prio %d) changed prio to %d (running= %d)\n", task_pid_nr(p), oldprio, p->prio, running);
+	printk(KERN_INFO "process %d (with prio %d) changed prio to %d (running = %d)\n", task_pid_nr(p), oldprio, p->prio, running);
 
 	// if our priority increased, reschedule current task
 	if (running) {
