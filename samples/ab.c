@@ -48,6 +48,7 @@ static void loop_on(char c) {
              fflush(stdout);
         }
     }
+    printf("done(%c)", c);
 }
 
 int main(int argc, char* argv[]) {

@@ -51,6 +51,22 @@ static void _remove(struct rq *rq, struct task_struct *p)
  *   some task changed its priority
  */
 
+// very inefficient way to find the drq from the task
+static struct dummy_rq * dummy_rq_find_from_task(struct rq *rq, struct task_struct *task)
+{
+        struct list_head *pos;
+        struct dummy_rq *tmp;
+       
+        list_for_each(pos, &rq->dummy_rq.list) {
+            tmp = list_entry(pos, struct dummy_rq, list);
+            if (tmp->task == task) {
+                return tmp;
+            }
+        }
+
+        return NULL;
+}
+
 static void enqueue_task_dummy(struct rq *rq, struct task_struct *p, int wakeup)
 {
 	_enqueue(rq, p);
@@ -62,7 +78,19 @@ static void dequeue_task_dummy(struct rq *rq, struct task_struct *p, int sleep)
 
 static int dummy_calculate_prio(struct dummy_rq * rq)
 {
-        return rq->task->static_prio;
+        int ticks, TICKS_ATOM;
+
+        TICKS_ATOM = 1;
+        ticks = rq->ticks;
+
+        rq->task->prio = rq->task->static_prio;
+
+        while (ticks > TICKS_ATOM) {
+            ticks -= TICKS_ATOM;
+            rq->task->prio++;
+        }
+
+        return rq->task->prio;
 }
 
 static struct task_struct *really_pick_next_task_dummy(struct rq * rq)
@@ -87,6 +115,11 @@ static struct task_struct *really_pick_next_task_dummy(struct rq * rq)
         list_del(&(best->list));
 	list_add_tail(&(best->list), &(rq->dummy_rq.list));
 
+        // reset ticks
+        if (best->task != rq->curr) {
+            best->ticks = 0;
+        }
+
         return best->task;
 }
 
@@ -101,13 +134,17 @@ static struct task_struct *pick_next_task_dummy(struct rq *rq)
 
 static void put_prev_task_dummy(struct rq *rq, struct task_struct *prev)
 {
-	// to implement
+        // nothing to do here?
 }
 
 static void task_tick_dummy(struct rq *rq, struct task_struct *curr, int queued)
 {
-        struct dummy_rq *drq = &(rq->dummy_rq);
-        drq->ticks++;
+        // called whenever a task ticks? increment ticks count.
+        struct dummy_rq *tmp;
+
+        if ((tmp = dummy_rq_find_from_task(rq, curr))) {
+            tmp->ticks++;
+        }
 }
 
 static void prio_changed_dummy(struct rq *rq, struct task_struct *p,
