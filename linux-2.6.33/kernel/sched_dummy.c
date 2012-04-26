@@ -3,6 +3,8 @@
  */
 #include <linux/sched.h>
 
+#define DUMMY_TICKS_ATOM 1
+
 static void _enqueue(struct rq *rq, struct task_struct *p)
 {
 	struct dummy_rq *n = kmalloc(sizeof(struct dummy_rq), GFP_KERNEL);
@@ -78,17 +80,7 @@ static void dequeue_task_dummy(struct rq *rq, struct task_struct *p, int sleep)
 
 static int dummy_calculate_prio(struct dummy_rq * rq)
 {
-        int ticks, TICKS_ATOM;
-
-        TICKS_ATOM = 1;
-        ticks = rq->ticks;
-
-        rq->task->prio = rq->task->static_prio;
-
-        while (ticks > TICKS_ATOM) {
-            ticks -= TICKS_ATOM;
-            rq->task->prio++;
-        }
+        rq->task->prio = rq->task->static_prio + rq->ticks / DUMMY_TICKS_ATOM;
 
         return rq->task->prio;
 }
